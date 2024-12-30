@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleções - Chá de Bebê da Ruby</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #fad0e8;
+        }
+
+        .table-container {
+            margin: 30px auto;
+            max-width: 100%;
+            /* Permite que a tabela ocupe a largura total */
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            /* Garante que a tabela ocupe toda a largura disponível */
+            border-collapse: collapse;
+            /* Remove os espaçamentos padrão entre as células */
+        }
+
+        .table th,
+        .table td {
+            text-align: center;
+            vertical-align: middle;
+            padding: 15px;
+            /* Adiciona mais espaço interno */
+            font-size: 1.2rem;
+            /* Aumenta o tamanho da fonte */
+        }
+
+        .table th {
+            background-color: #a46a78;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .table td {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            /* Adiciona uma borda para separar as células */
+        }
+
+        .table-container table {
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            /* Adiciona um leve sombreado à tabela */
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Gift Choices</h1>
+
+        <!-- Tabela que exibirá as seleções -->
+        <div class="table-container">
+            <table class="table table-bordered">
+                <thead>
+                    <tr id="header-row">
+                        <!-- Colunas serão inseridas dinamicamente aqui -->
+                    </tr>
+                </thead>
+                <tbody id="data-rows">
+                    <!-- Dados serão inseridos dinamicamente aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfamUItfyse2lisxsC7uaunqG3XsgSs-A",
+            authDomain: "gift-list-82fef.firebaseapp.com",
+            projectId: "gift-list-82fef",
+            storageBucket: "gift-list-82fef.firebasestorage.app",
+            messagingSenderId: "350818253250",
+            appId: "1:350818253250:web:8dc6c8921961d1c0437e5b",
+            measurementId: "G-T8N2BHQSXQ"
+        };
+
+        // Inicializando o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let gifts = [];
+        let selections = [];
+
+        // Função para carregar os presentes e as seleções
+        async function loadSelections() {
+            try {
+                // Carregar os presentes
+                const giftsSnapshot = await db.collection('gifts').get();
+                gifts = giftsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    name: doc.data().name
+                }));
+
+                // Carregar as seleções
+                const selectionsSnapshot = await db.collection('selections').get();
+                selections = selectionsSnapshot.docs.map(doc => doc.data());
+
+                renderTable();
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+            }
+        }
+
+        // Função para renderizar a tabela com as seleções
+        function renderTable() {
+            const headerRow = document.getElementById('header-row');
+            const dataRows = document.getElementById('data-rows');
+
+            // Limpar a tabela antes de renderizar
+            headerRow.innerHTML = '';
+            dataRows.innerHTML = '';
+
+            // Criar as colunas (presentes)
+            const giftHeaders = gifts.map(gift => `<th>${gift.name}</th>`).join('');
+            headerRow.innerHTML = `<th>Nome</th><th>Telefone</th>${giftHeaders}`;
+
+            // Agrupar seleções por pessoa
+            const groupedSelections = selections.reduce((acc, sel) => {
+                const key = `${sel.name}_${sel.phone}`;
+                if (!acc[key]) {
+                    acc[key] = { name: sel.name, phone: sel.phone, gifts: [] };
+                }
+                acc[key].gifts.push(sel.giftId);
+                return acc;
+            }, {});
+
+            // Criar as linhas de dados
+            const rows = Object.values(groupedSelections).map(person => {
+                const giftCells = gifts.map(gift => {
+                    const selected = person.gifts.includes(gift.id);
+                    return `<td>${selected ? '✔️' : ''}</td>`;
+                }).join('');
+
+                return `<tr>
+                        <td>${person.name}</td>
+                        <td>${person.phone}</td>
+                        ${giftCells}
+                    </tr>`;
+            }).join('');
+
+            dataRows.innerHTML = rows;
+        }
+
+        // Carregar as seleções assim que a página for carregada
+        loadSelections();
+    </script>
+
+</body>
+
+</html>

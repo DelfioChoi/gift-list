@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chá de Bebê da Ruby</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+
+
+  <style>
+    .header-img {
+      width: 100%;
+      height: auto;
+    }
+
+    /* Estilo do corpo */
+    body {
+      background-color: #fad0e8;
+    }
+
+    .card-body {
+      text-align: center;
+      /* Centraliza os textos */
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      /* Garante que o conteúdo também seja centralizado verticalmente */
+      min-height: 100px;
+    }
+
+    .card-selected {
+      background-color: #a56a78;
+      border-color: #f5c2c7;
+      color: #fff;
+      height: 100%;
+    }
+
+    .card-selected .btn {
+      display: none;
+    }
+
+    .card {
+      border-radius: 8px;
+      border-width: 1px;
+      border-color: #dee2e6;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-height: 150px;
+      /* Altura mínima para os cartões */
+    }
+
+    .card:hover {
+      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn {
+      background-color: #a46a78;
+      border-color: #a46a78;
+      color: #fff;
+      font-size: 0.85rem;
+      /* Reduz o tamanho da fonte */
+      height: 35px;
+      /* Ajusta a altura do botão */
+      width: 140px;
+      /* Ajusta a largura do botão */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      /* Garantia de centralização total */
+    }
+
+    .btn:hover {
+      background-color: #491725;
+      border-color: #491725;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      /* Espaçamento entre os cards */
+    }
+
+    /* Ajuste para garantir que 3 colunas se mantenham no desktop */
+    .col-md-4 {
+      display: flex;
+      flex-direction: column;
+      flex: 1 0 31%;
+      /* Isso garante 3 colunas em telas grandes */
+    }
+
+    /* Opcional: Estilo adicional para cards no mobile */
+    @media (max-width: 767px) {
+      .col-md-4 {
+        flex: 1 0 100%;
+        /* No mobile, os cartões ocupam toda a largura */
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <img src="https://imgur.com/bg7Limf.png" alt="Chá de Bebê da Ruby" class="header-img">
+
+  <div class="container mt-5">
+    <h1 class="text-center mb-4">Lista de Presentes</h1>
+    <div class="row" id="gift-list">
+      <!-- Os cartões serão inseridos aqui dinamicamente -->
+    </div>
+  </div>
+
+  <!-- Modal para seleção -->
+  <div class="modal fade" id="giftModal" tabindex="-1" aria-labelledby="giftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="giftModalLabel">Selecione o Presente</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="selectionForm">
+            <input type="hidden" id="giftId" name="giftId">
+            <div class="mb-3">
+              <label for="name" class="form-label">Seu Nome</label>
+              <input type="text" class="form-control" id="name" required>
+            </div>
+            <div class="mb-3">
+              <label for="phone" class="form-label">Seu Telefone</label>
+              <input type="tel" class="form-control" id="phone" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Confirmar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Versões antigas do Firebase (sem a modularização) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <script>
+
+    $(document).ready(function () {
+      $('#phone').mask('(00) 00000-0000');
+    });
+
+    // Sua configuração do Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDfamUItfyse2lisxsC7uaunqG3XsgSs-A",
+      authDomain: "gift-list-82fef.firebaseapp.com",
+      projectId: "gift-list-82fef",
+      storageBucket: "gift-list-82fef.firebasestorage.app",
+      messagingSenderId: "350818253250",
+      appId: "1:350818253250:web:8dc6c8921961d1c0437e5b",
+      measurementId: "G-T8N2BHQSXQ"
+    };
+
+    // Inicializando o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let gifts = [];
+
+    // Função para buscar presentes e calcular saldo em tempo real
+    async function getGifts() {
+      const giftsSnapshot = await db.collection('gifts').get();
+      gifts = giftsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        total: doc.data().available, // Saldo total no banco
+      }));
+
+      // Buscar seleções
+      const selectionsSnapshot = await db.collection('selections').get();
+      const selections = selectionsSnapshot.docs.map(doc => doc.data());
+
+      // Atualizar saldo com base nas seleções
+      gifts.forEach(gift => {
+        const chosenCount = selections.filter(sel => sel.giftId === gift.id).length;
+        gift.available = gift.total - chosenCount; // Saldo em tempo real
+      });
+
+      renderGifts(); // Chama a função de renderização após atualizar os dados
+    }
+
+
+    // Função para renderizar os presentes na interface
+    function renderGifts() {
+      // Ordena os presentes por nome (ordem alfabética)
+      gifts.sort((a, b) => a.name.localeCompare(b.name));
+
+      const giftList = document.getElementById('gift-list');
+      giftList.innerHTML = '';
+
+      gifts.forEach(gift => {
+        const card = document.createElement('div');
+        card.className = 'col-md-4 mb-4';  // Mantém as colunas responsivas
+        card.innerHTML = `
+              <div class="card ${gift.available === 0 ? 'card-selected' : ''}">
+                  <div class="card-body">
+                      <h5 class="card-title">${gift.name}</h5>
+                      <p class="card-text">
+                          Disponível: ${gift.available}
+                      </p>
+                      <button class="btn" ${gift.available === 0 ? 'disabled' : ''} onclick="selectGift('${gift.id}')">Selecionar</button>
+                      <p class="card-text" style="font-size: 12px;">
+                          ${(Math.random() * 5 + 1).toFixed(0)} pessoas estão vendo este item.
+                      </p>
+                  </div>
+              </div>
+          `;
+        giftList.appendChild(card);
+      });
+    }
+
+    function selectGift(id) {
+      const gift = gifts.find(g => g.id === id);
+      if (!gift || gift.available <= 0) {
+        alert("Este presente já foi totalmente escolhido.");
+        return;
+      }
+
+      document.getElementById('giftId').value = id;
+      const modal = new bootstrap.Modal(document.getElementById('giftModal'));
+      modal.show();
+    }
+
+    // Função para salvar a seleção na coleção "selections"
+    async function saveSelection(giftId, name, phone) {
+      try {
+        await db.collection('selections').add({
+          giftId,
+          name,
+          phone,
+          timestamp: new Date(),
+        });
+
+        // alert(`Obrigado, ${name}! Sua seleção foi registrada.`);
+        await getGifts(); // Atualiza os dados em tempo real
+      } catch (e) {
+        console.error("Erro ao registrar seleção: ", e);
+      }
+    }
+
+    document.getElementById('selectionForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const id = document.getElementById('giftId').value; // Corrigido para id ser uma string, não número
+      const name = document.getElementById('name').value;
+      const phone = document.getElementById('phone').value;
+
+      // Chama a função para salvar os dados na coleção "selections" e atualizar o estoque
+      saveSelection(id, name, phone).then(() => {
+        // Depois de salvar a seleção e atualizar o estoque, recarrega os presentes
+        getGifts();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('giftModal'));
+        modal.hide();
+        alert(`Obrigado, ${name}! Sua seleção foi registrada.`);
+      });
+    });
+
+    // Carregar os presentes assim que a página for carregada
+    getGifts();
+  </script>
+</body>
+
+</html>
